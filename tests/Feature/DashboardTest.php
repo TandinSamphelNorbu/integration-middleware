@@ -25,14 +25,13 @@ class DashboardTest extends TestCase
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('email');
+            $table->string('name')->unique();
             $table->string('password');
             $table->rememberToken();
             $table->timestamps();
         });
 
-        return User::create(['name' => 'operator', 'email' => 'operator@example.test', 'password' => 'test-password']);
+        return User::factory()->create(['name' => 'operator', 'password' => 'test-password']);
     }
 
     public function test_login_page_is_available(): void

@@ -3,7 +3,10 @@
 namespace App\Services;
 
 use App\Constants\CrmConstants;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class SubscriberService
@@ -24,6 +27,11 @@ class SubscriberService
         }
 
         if (! $response->successful()) {
+            Log::error('CRM request failed.', [
+                'operation' => 'QueryPlan',
+                'status_code' => $response->status(),
+                'failure_type' => 'http',
+            ]);
             throw new RuntimeException(
                 'CRM QueryPlan failed. HTTP status: '.$response->status()
             );
@@ -57,30 +65,40 @@ class SubscriberService
         );
     }
 
-    private function queryPlan(string $serviceId)
+    private function queryPlan(string $serviceId): Response
     {
         $token = $this->crmAuthService->getAccessToken();
         $baseUrl = rtrim(config('services.crm_6d.url'), '/');
 
-        return Http::withOptions([
-            'allow_redirects' => true,
-        ])
-            ->withHeaders([
-                'Accept' => 'text/xml',
-                'Content-Type' => 'application/json',
-                'route' => 'QueryPlan',
-                'sourcenode' => CrmConstants::SOURCE_NODE,
-                'Authorization' => 'Bearer '.$token,
+        try {
+            return Http::withOptions([
+                'allow_redirects' => true,
             ])
-            ->withQueryParameters([
-                'type' => 1,
-                'network_type' => 'GSM',
-            ])
-            ->withBody('{}', 'application/json')
-            ->timeout(30)
-            ->post(
-                $baseUrl.'/ticl/api/v1/passthrough/'.$serviceId
-            );
+                ->withHeaders([
+                    'Accept' => 'text/xml',
+                    'Content-Type' => 'application/json',
+                    'route' => 'QueryPlan',
+                    'sourcenode' => CrmConstants::SOURCE_NODE,
+                    'Authorization' => 'Bearer '.$token,
+                ])
+                ->withQueryParameters([
+                    'type' => 1,
+                    'network_type' => 'GSM',
+                ])
+                ->withBody('{}', 'application/json')
+                ->timeout(30)
+                ->post(
+                    $baseUrl.'/ticl/api/v1/passthrough/'.$serviceId
+                );
+        } catch (ConnectionException) {
+            Log::error('CRM connection failed.', [
+                'operation' => 'QueryPlan',
+                'host' => parse_url($baseUrl, PHP_URL_HOST),
+                'failure_type' => 'connection',
+            ]);
+
+            throw new RuntimeException('Unable to connect to CRM for QueryPlan. Please try again later.');
+        }
     }
 
     public function has4G(string $serviceId): bool
@@ -95,6 +113,11 @@ class SubscriberService
         }
 
         if (! $response->successful()) {
+            Log::error('CRM request failed.', [
+                'operation' => 'FetchHLR',
+                'status_code' => $response->status(),
+                'failure_type' => 'http',
+            ]);
             throw new RuntimeException(
                 'CRM FetchHLR failed. HTTP status: '.$response->status()
             );
@@ -112,26 +135,36 @@ class SubscriberService
             && $services['4g_lte_service'] !== '0';
     }
 
-    private function fetchHLR(string $serviceId)
+    private function fetchHLR(string $serviceId): Response
     {
         $token = $this->crmAuthService->getAccessToken();
         $baseUrl = rtrim(config('services.crm_6d.url'), '/');
 
-        return Http::withOptions([
-            'allow_redirects' => true,
-        ])
-            ->withHeaders([
-                'Accept' => 'text/xml',
-                'Content-Type' => 'application/json',
-                'route' => 'FetchHLR',
-                'sourcenode' => CrmConstants::SOURCE_NODE,
-                'Authorization' => 'Bearer '.$token,
+        try {
+            return Http::withOptions([
+                'allow_redirects' => true,
             ])
-            ->withQueryParameters([
-                'service_id' => $serviceId,
-            ])
-            ->withBody('{}', 'application/json')
-            ->timeout(30)
-            ->post($baseUrl.'/ticl/api/v1/passthrough');
+                ->withHeaders([
+                    'Accept' => 'text/xml',
+                    'Content-Type' => 'application/json',
+                    'route' => 'FetchHLR',
+                    'sourcenode' => CrmConstants::SOURCE_NODE,
+                    'Authorization' => 'Bearer '.$token,
+                ])
+                ->withQueryParameters([
+                    'service_id' => $serviceId,
+                ])
+                ->withBody('{}', 'application/json')
+                ->timeout(30)
+                ->post($baseUrl.'/ticl/api/v1/passthrough');
+        } catch (ConnectionException) {
+            Log::error('CRM connection failed.', [
+                'operation' => 'FetchHLR',
+                'host' => parse_url($baseUrl, PHP_URL_HOST),
+                'failure_type' => 'connection',
+            ]);
+
+            throw new RuntimeException('Unable to connect to CRM for FetchHLR. Please try again later.');
+        }
     }
 }
