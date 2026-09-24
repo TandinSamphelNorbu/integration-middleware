@@ -38,11 +38,10 @@ class SubscriberService
         }
 
         $data = $response->json();
-
         if (($data['result_code'] ?? null) !== '0') {
             throw new RuntimeException(
                 'Subscriber lookup failed: '
-                .($data['result_desc'] ?? 'Unknown CRM error')
+                .($data['message'] ?? $data['result_desc'] ??  'Unknown CRM error')
             );
         }
 
