@@ -1,9 +1,11 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CatalogController;
+use App\Http\Controllers\Api\FwaPlanController;
+use App\Http\Controllers\Api\FwaPlanSyncController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 Route::post('/v1/login', [AuthController::class, 'login']);
 
@@ -19,10 +21,18 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         ]);
     });
 
-
     Route::get('/catalog', [
         CatalogController::class,
-        'index'
+        'index',
     ]);
+
+    Route::post('/catalog/refresh', [
+        CatalogController::class,
+        'refresh',
+    ]);
+
+    Route::get('/fwa/plans', [FwaPlanController::class, 'index']);
+
+    Route::post('/fwa/sync', [FwaPlanSyncController::class, 'sync']);
 
 });

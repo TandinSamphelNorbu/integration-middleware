@@ -9,8 +9,7 @@ class CatalogService
     public function __construct(
         private CatalogEligibilityService $eligibilityService,
         private CatalogRepository $catalogRepository
-    ) {
-    }
+    ) {}
 
     public function getCatalog(string $serviceId, string $type): array
     {
@@ -18,7 +17,7 @@ class CatalogService
             ->getEligibility($serviceId, $type);
 
         $plans = $this->catalogRepository
-            ->getEligiblePlans($eligibility);
+            ->getEligiblePlansFromCache($eligibility);
 
         $dataPlans = $plans
             ->groupBy('CategoryId')

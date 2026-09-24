@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+@source '../views/**/*.blade.php';
+@source '../js/**/*.js';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -6,4 +8,12 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+@layer components {
+    .panel { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
+    .field-label { @apply mb-2 block text-sm font-medium text-slate-700; }
+    .field { @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-3 focus:ring-teal-600/10 disabled:bg-slate-100 disabled:text-slate-400; }
+    .button-primary { @apply inline-flex cursor-pointer items-center justify-center gap-4 rounded-lg bg-teal-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:cursor-wait disabled:opacity-60; }
+    .button-secondary { @apply inline-flex cursor-pointer items-center justify-center gap-4 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:cursor-wait disabled:opacity-60; }
 }
