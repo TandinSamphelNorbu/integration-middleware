@@ -125,6 +125,21 @@ function renderPostpaidPlans(data, target) {
     return count;
 }
 
+function renderIllPlans(data, target) {
+    if (!data.base_plan || !Array.isArray(data.addons)) throw new Error('Unexpected ILL response.');
+    appendDetails(target, [['Subscriber type', data.subscription], ['Base plan', data.base_plan.name], ['Base plan ID', data.base_plan.id]]);
+    const grid = element('div', 'mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3');
+    for (const addon of data.addons) {
+        const card = element('article', 'rounded-xl border border-slate-200 p-5');
+        card.append(element('h3', 'font-semibold', addon.name));
+        appendDetails(card, [['Add-on ID', addon.id]]);
+        grid.append(card);
+    }
+    target.append(grid);
+    if (!data.addons.length) target.append(element('p', 'py-10 text-center text-sm text-slate-500', 'No optional add-ons are mapped to this base plan.'));
+    return data.addons.length;
+}
+
 const form = document.querySelector('#lookup-form');
 if (form) {
     const source = document.querySelector('#plan-source');
@@ -137,7 +152,7 @@ if (form) {
         const count = document.querySelector('#result-count');
         const selectedSource = source.value;
         const values = new FormData(form);
-        const url = new URL(selectedSource === 'fwa' ? form.dataset.fwaUrl : form.dataset.catalogUrl);
+        const url = new URL(selectedSource === 'ill' ? form.dataset.illUrl : selectedSource === 'fwa' ? form.dataset.fwaUrl : form.dataset.catalogUrl);
         url.search = new URLSearchParams({ service_id: values.get('service_id') }).toString();
         button.disabled = true;
         panel.setAttribute('aria-busy', 'true');
@@ -150,14 +165,16 @@ if (form) {
             if (selectedSource === 'fwa' && !isPostpaid && !(data.plan_type && data.primary_offering_id && Array.isArray(data.plans))) {
                 throw new Error('Unexpected FWA response.');
             }
-            const total = isPostpaid ? renderPostpaidPlans(data, results) : renderPlans(data, selectedSource, results);
+            const total = selectedSource === 'ill' ? renderIllPlans(data, results) : isPostpaid ? renderPostpaidPlans(data, results) : renderPlans(data, selectedSource, results);
             count.textContent = `${total} plans`;
-            status.textContent = isPostpaid
+            status.textContent = selectedSource === 'ill'
+                ? `Results for ${values.get('service_id')} ? ${data.base_plan.name} ? Optional add-ons`
+                : isPostpaid
                 ? `Results for ${values.get('service_id')} · ${data.subscription} · ${data.currentBasePlan?.Name || data.bandwidth || 'Current plan unavailable'}`
                 : `Results for ${values.get('service_id')} · Primary offering ${data.poId ?? data.primary_offering_id ?? '—'}`;
         } catch (error) {
             count.textContent = 'Lookup failed';
-            status.textContent = error.message;
+            status.textContent = selectedSource === 'ill' ? 'Unable to retrieve ILL offerings. Check the service number and ILL eligibility, then try again.' : error.message;
         } finally {
             button.disabled = false;
             panel.setAttribute('aria-busy', 'false');

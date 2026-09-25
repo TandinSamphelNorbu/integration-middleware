@@ -4,8 +4,8 @@
             <div><p class="text-xs font-semibold uppercase tracking-widest text-teal-700">Subscriber services</p><h1 class="mt-2 text-3xl font-semibold tracking-tight">Plan workspace</h1><p class="mt-2 text-sm text-slate-500">Look up eligible plans and manage your catalog.</p></div>
             <section class="panel overflow-hidden">
                 <div class="border-b border-slate-100 px-6 py-5"><h2 class="font-semibold">Find subscriber plans</h2><p class="mt-1 text-sm text-slate-500">Enter a service number to see the plans available to that subscriber.</p></div>
-                <form id="lookup-form" data-catalog-url="{{ route('dashboard.catalog') }}" data-fwa-url="{{ route('dashboard.fwa') }}" class="grid items-end gap-5 p-6 md:grid-cols-[1fr_1.4fr_auto]">
-                    <div><label class="field-label" for="plan-source">Service</label><select id="plan-source" class="field"><option value="catalog">Mobile catalog</option><option value="fwa">FWA broadband</option></select></div>
+                <form id="lookup-form" data-catalog-url="{{ route('dashboard.catalog') }}" data-fwa-url="{{ route('dashboard.fwa') }}" data-ill-url="{{ route('dashboard.ill.catalog') }}" class="grid items-end gap-5 p-6 md:grid-cols-[1fr_1.4fr_auto]">
+                    <div><label class="field-label" for="plan-source">Service</label><select id="plan-source" class="field"><option value="catalog">Mobile catalog</option><option value="fwa">FWA broadband</option><option value="ill">ILL leased line</option></select></div>
                     <div><label class="field-label" for="service-id">Service number</label><input id="service-id" name="service_id" class="field" required maxlength="20" placeholder="Enter service number" autocomplete="off"></div>
                     <button class="button-primary" type="submit">Find plans <span aria-hidden="true">→</span></button>
                 </form>

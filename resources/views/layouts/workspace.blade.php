@@ -6,7 +6,7 @@
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3 text-xl font-semibold"><span class="grid size-9 place-items-center rounded-xl bg-teal-400 text-slate-950">T</span>TashiCell</a>
         <p class="mt-2 pl-12 text-xs text-slate-500">Integration workspace</p>
         <nav aria-label="Main navigation" class="mt-8 space-y-2 lg:mt-12">
-            @foreach (['dashboard' => 'Plan workspace', 'logs' => 'Request logs', 'apis' => 'API directory'] as $routeName => $label)
+            @foreach (['dashboard' => 'Plan workspace', 'ill' => 'ILL offerings', 'logs' => 'Request logs', 'apis' => 'API directory'] as $routeName => $label)
                 <a href="{{ route($routeName) }}" @if(request()->routeIs($routeName)) aria-current="page" @endif @class(['flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition', 'bg-white/10 text-teal-300' => request()->routeIs($routeName), 'text-slate-400 hover:bg-white/5 hover:text-white' => !request()->routeIs($routeName)])>{{ $label }}</a>
             @endforeach
         </nav>

@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\FwaPlanController;
 use App\Http\Controllers\Api\FwaPlanSyncController;
 use App\Http\Controllers\Api\IllCacheController;
+use App\Http\Controllers\Api\IllCatalogController;
+use App\Http\Controllers\Api\IllOfferingMappingController;
 use App\Http\Controllers\Api\PostpaidFwaPlanController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +41,10 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
 
     Route::post('/ill/refresh', [IllCacheController::class, 'refresh']);
 
+    Route::get('/ill/offerings/{basePlanId}/addons', [IllOfferingMappingController::class, 'index']);
+
     Route::get('/fwa/postpaid/plans', [PostpaidFwaPlanController::class, 'index']);
+
+    Route::get('/ill/catalog', [IllCatalogController::class, 'index']);
 
 });

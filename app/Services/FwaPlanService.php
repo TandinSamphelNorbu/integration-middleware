@@ -45,7 +45,7 @@ class FwaPlanService
         } else {
             throw new RuntimeException(
                 'This number is not eligible for recharging. '
-                .'Please try with valid prepaid ILL number.'
+                .'Please try with valid prepaid FWA number.'
             );
         }
 

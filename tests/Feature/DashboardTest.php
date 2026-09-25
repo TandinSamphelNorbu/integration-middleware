@@ -53,7 +53,8 @@ class DashboardTest extends TestCase
             ->assertDontSee('value="postpaid-fwa"', false)->assertDontSee('data-postpaid-fwa-url', false)
             ->assertDontSee('id="subscriber-type"', false)->assertDontSee('name="type"', false)
             ->assertDontSee('<option value="postpaid-fwa">Postpaid FWA</option>', false)
-            ->assertSee(route('dashboard.fwa'))->assertSee(route('dashboard.ill.refresh'));
+            ->assertSee(route('dashboard.fwa'))->assertSee(route('dashboard.ill.refresh'))
+            ->assertSee('ILL leased line')->assertSee(route('dashboard.ill.catalog'))->assertSee(route('ill'));
     }
 
     public function test_postpaid_fwa_lookup_returns_postpaid_fwa_details(): void
@@ -207,7 +208,7 @@ class DashboardTest extends TestCase
 
     public function test_api_directory_lists_routes_and_authentication(): void
     {
-        $this->actingAs(new User(['name' => 'operator']))->get('/apis')->assertSee('/api/v1/login')->assertSee('/api/v1/catalog')->assertSee('/api/v1/fwa/sync')->assertSee('Bearer token required');
+        $this->actingAs(new User(['name' => 'operator']))->get('/apis')->assertSee('/api/v1/login')->assertSee('/api/v1/catalog')->assertSee('/api/v1/fwa/sync')->assertSee('Bearer token required')->assertSee('ILL subscriber catalog')->assertSee('ILL offering mappings')->assertSee('/api/v1/ill/offerings/{basePlanId}/addons');
     }
 
     public function test_catalog_lookup_uses_existing_service(): void
