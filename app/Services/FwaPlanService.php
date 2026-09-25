@@ -67,6 +67,7 @@ class FwaPlanService
                 $totalAmount = $amount + $gstAmount;
 
                 return [
+                    'plan_id' => $plan->cbs_id,
                     'plan_name' => $plan->plan_name,
                     'amount' => $amount,
                     'data_cap' => $plan->data_cap,
@@ -77,6 +78,7 @@ class FwaPlanService
             })
             ->values();
 
+  
         /*
         * Preserve old behavior:
         * return amounts for ALL active prepaid ILL plans,
