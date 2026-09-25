@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\CrmAuthService;
 use App\Services\SubscriberService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -45,11 +46,12 @@ class CrmConnectionLoggingTest extends TestCase
     public function test_connection_failure_logs_safe_context_and_throws_safe_message(string $operation, string $path): void
     {
         Http::fake(['https://crm.example.test'.$path => Http::failedConnection('Connection failed with secret-token and 12345678')]);
-        Log::shouldReceive('error')->once()->with('CRM connection failed.', [
-            'operation' => $operation,
-            'host' => 'crm.example.test',
-            'failure_type' => 'connection',
-        ]);
+        Log::shouldReceive('error')->once()->with('CRM integration failed.', \Mockery::on(fn (array $context): bool => $context['integration'] === 'CRM'
+            && $context['operation'] === $operation
+            && $context['status_code'] === null
+            && $context['service_id'] === ($operation === 'Authentication' ? null : '12345678')
+            && ! str_contains(json_encode($context), 'secret-token')
+        ));
 
         try {
             $this->callOperation($operation);
@@ -58,7 +60,7 @@ class CrmConnectionLoggingTest extends TestCase
             $this->assertStringContainsString('Unable to connect to CRM', $exception->getMessage());
             $this->assertStringNotContainsString('secret-token', $exception->getMessage());
             $this->assertStringNotContainsString('12345678', $exception->getMessage());
-            $this->assertNull($exception->getPrevious());
+            $this->assertInstanceOf(ConnectionException::class, $exception->getPrevious());
         }
 
         Http::assertSentCount(1);
@@ -68,11 +70,10 @@ class CrmConnectionLoggingTest extends TestCase
     public function test_http_failure_logs_status_without_response_body(string $operation, string $path): void
     {
         Http::fake(['https://crm.example.test'.$path => Http::response(['secret' => 'not-for-logs'], 503)]);
-        Log::shouldReceive('error')->once()->with('CRM request failed.', [
-            'operation' => $operation,
-            'status_code' => 503,
-            'failure_type' => 'http',
-        ]);
+        Log::shouldReceive('error')->once()->with('CRM integration failed.', \Mockery::on(fn (array $context): bool => $context['operation'] === $operation
+            && $context['status_code'] === 503
+            && ! str_contains(json_encode($context), 'not-for-logs')
+        ));
 
         try {
             $this->callOperation($operation);

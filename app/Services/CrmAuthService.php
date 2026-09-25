@@ -5,8 +5,6 @@ namespace App\Services;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-use RuntimeException;
 
 class CrmAuthService
 {
@@ -34,41 +32,34 @@ class CrmAuthService
                 )
                 ->timeout(30)
                 ->post($url.'/ticl/api/v1/authentication');
-        } catch (ConnectionException) {
-            Log::error('CRM connection failed.', [
-                'operation' => 'Authentication',
-                'host' => parse_url($url, PHP_URL_HOST),
-                'failure_type' => 'connection',
-            ]);
+        } catch (ConnectionException $exception) {
 
-            throw new RuntimeException('Unable to connect to CRM for authentication. Please try again later.');
+            $failure = new IntegrationException('Unable to connect to CRM for authentication. Please try again later.', 'Authentication', previous: $exception);
+            $failure->logFailure(request()->query('service_id'));
+
+            throw $failure;
         }
 
         if (! $response->successful()) {
-            Log::error('CRM request failed.', [
-                'operation' => 'Authentication',
-                'status_code' => $response->status(),
-                'failure_type' => 'http',
-            ]);
-            throw new RuntimeException(
-                'CRM authentication failed. HTTP status: '.$response->status()
+            $failure = new IntegrationException(
+                'CRM authentication failed. HTTP status: '.$response->status(),
+                'Authentication', $response->status(), $response->toException(),
             );
+            $failure->logFailure(request()->query('service_id'));
+
+            throw $failure;
         }
 
         $data = $response->json();
 
         if (($data['status'] ?? null) !== '200') {
-            throw new RuntimeException(
-                $data['message'] ?? 'CRM authentication failed'
-            );
+            throw new IntegrationException('CRM authentication failed.', 'Authentication', $response->status());
         }
 
         $token = $data['accesToken'] ?? null;
 
         if (! $token) {
-            throw new RuntimeException(
-                'CRM authentication response missing accesToken'
-            );
+            throw new IntegrationException('CRM authentication response missing accesToken', 'Authentication', $response->status());
         }
 
         $ttl = $this->getTokenTtl($token);

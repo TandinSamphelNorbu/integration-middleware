@@ -7,7 +7,6 @@ use App\Repositories\IllOfferingRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class SubscriberService
@@ -93,9 +92,9 @@ class SubscriberService
         }
 
         if (! $response->successful()) {
-            throw new RuntimeException(
+            throw new IntegrationException(
                 'CRM ILL customer lookup failed. HTTP status: '
-                .$response->status()
+                .$response->status(), 'queryservice', $response->status(), $response->toException()
             );
         }
 
@@ -103,6 +102,7 @@ class SubscriberService
             return [
                 'success' => false,
                 'status' => (string) ($data['result_code'] ?? ''),
+                'http_status' => $response->status(),
                 'subscription' => null,
                 'BasePlan' => null,
             ];
@@ -283,23 +283,19 @@ class SubscriberService
         }
 
         if (! $response->successful()) {
-            Log::error('CRM request failed.', [
-                'operation' => 'QueryPlan',
-                'status_code' => $response->status(),
-                'failure_type' => 'http',
-            ]);
-            throw new RuntimeException(
-                'CRM QueryPlan failed. HTTP status: '.$response->status()
+            $failure = new IntegrationException(
+                'CRM QueryPlan failed. HTTP status: '.$response->status(),
+                'QueryPlan', $response->status(), $response->toException(),
             );
+            $failure->logFailure($serviceId);
+
+            throw $failure;
         }
 
         $data = $response->json();
 
         if (($data['result_code'] ?? null) !== '0') {
-            throw new RuntimeException(
-                'Subscriber lookup failed: '
-                .($data['message'] ?? $data['result_desc'] ?? 'Unknown CRM error')
-            );
+            throw new IntegrationException('CRM returned an unsuccessful primary offering lookup.', 'QueryPlan', $response->status());
         }
 
         foreach (($data['subscriptions'] ?? []) as $subscription) {
@@ -307,18 +303,14 @@ class SubscriberService
                 $primaryOfferingId = $subscription['external_plan_id'] ?? null;
 
                 if (! $primaryOfferingId) {
-                    throw new RuntimeException(
-                        'Primary offering ID missing for subscriber.'
-                    );
+                    throw new IntegrationException('Primary offering ID missing for subscriber.', 'QueryPlan', $response->status());
                 }
 
                 return $primaryOfferingId;
             }
         }
 
-        throw new RuntimeException(
-            'No primary offering found for this service ID.'
-        );
+        throw new IntegrationException('No primary offering found for this service ID.', 'QueryPlan', $response->status());
     }
 
     private function queryPlan(string $serviceId): Response
@@ -346,14 +338,12 @@ class SubscriberService
                 ->post(
                     $baseUrl.'/ticl/api/v1/passthrough/'.$serviceId
                 );
-        } catch (ConnectionException) {
-            Log::error('CRM connection failed.', [
-                'operation' => 'QueryPlan',
-                'host' => parse_url($baseUrl, PHP_URL_HOST),
-                'failure_type' => 'connection',
-            ]);
+        } catch (ConnectionException $exception) {
 
-            throw new RuntimeException('Unable to connect to CRM for QueryPlan. Please try again later.');
+            $failure = new IntegrationException('Unable to connect to CRM for QueryPlan. Please try again later.', 'QueryPlan', previous: $exception);
+            $failure->logFailure($serviceId);
+
+            throw $failure;
         }
     }
 
@@ -369,20 +359,19 @@ class SubscriberService
         }
 
         if (! $response->successful()) {
-            Log::error('CRM request failed.', [
-                'operation' => 'FetchHLR',
-                'status_code' => $response->status(),
-                'failure_type' => 'http',
-            ]);
-            throw new RuntimeException(
-                'CRM FetchHLR failed. HTTP status: '.$response->status()
+            $failure = new IntegrationException(
+                'CRM FetchHLR failed. HTTP status: '.$response->status(),
+                'FetchHLR', $response->status(), $response->toException(),
             );
+            $failure->logFailure($serviceId);
+
+            throw $failure;
         }
 
         $data = $response->json();
 
         if (($data['result_code'] ?? null) !== '0') {
-            return false;
+            throw new IntegrationException('CRM returned an unsuccessful network lookup.', 'FetchHLR', $response->status());
         }
 
         $services = $data['hlr_services'] ?? [];
@@ -413,14 +402,12 @@ class SubscriberService
                 ->withBody('{}', 'application/json')
                 ->timeout(30)
                 ->post($baseUrl.'/ticl/api/v1/passthrough');
-        } catch (ConnectionException) {
-            Log::error('CRM connection failed.', [
-                'operation' => 'FetchHLR',
-                'host' => parse_url($baseUrl, PHP_URL_HOST),
-                'failure_type' => 'connection',
-            ]);
+        } catch (ConnectionException $exception) {
 
-            throw new RuntimeException('Unable to connect to CRM for FetchHLR. Please try again later.');
+            $failure = new IntegrationException('Unable to connect to CRM for FetchHLR. Please try again later.', 'FetchHLR', previous: $exception);
+            $failure->logFailure($serviceId);
+
+            throw $failure;
         }
     }
 }
