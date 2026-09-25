@@ -20,11 +20,6 @@ class CatalogRequest extends FormRequest
                 'max:20',
             ],
 
-            'type' => [
-                'required',
-                'string',
-                'in:prepaid,postpaid',
-            ],
         ];
     }
 }

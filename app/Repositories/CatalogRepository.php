@@ -286,6 +286,15 @@ class CatalogRepository
         return collect($catalog);
     }
 
+    public function findOfferingById(string|int $offeringId): ?array
+    {
+        return $this->getBaseCatalog()
+            ->first(function (array $offering) use ($offeringId) {
+                return (string) ($offering['Id'] ?? '') ===
+                    (string) $offeringId;
+            });
+    }
+
     public function getEligiblePlansFromCache(array $eligibility)
     {
         $plans = $this->getBaseCatalog();

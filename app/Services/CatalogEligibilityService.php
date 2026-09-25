@@ -3,20 +3,29 @@
 namespace App\Services;
 
 use App\Repositories\CatalogRepository;
+use RuntimeException;
 
 class CatalogEligibilityService
 {
     public function __construct(
         private SubscriberService $subscriberService,
         private CatalogRepository $catalogRepository
-    ) {
-    }
+    ) {}
 
     public function getEligibility(
-        string $serviceId,
-        string $type
+        string $serviceId
     ): array {
-        $type = strtolower($type);
+        $customer = $this->subscriberService->getIllCustomerData($serviceId);
+
+        if ($customer['success'] !== true) {
+            throw new RuntimeException('Unable to retrieve catalog customer details.');
+        }
+
+        $type = match ($customer['subscription'] ?? null) {
+            'Prepaid' => 'prepaid',
+            'Postpaid' => 'postpaid',
+            default => throw new RuntimeException('Unsupported subscription type for mobile catalog.'),
+        };
 
         $primaryOfferingId =
             $this->subscriberService->getPrimaryOfferingId($serviceId);

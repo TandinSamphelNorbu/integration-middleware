@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Repositories\IllOfferingRepository;
 use App\Services\CatalogService;
+use App\Services\PostpaidFwaPlanService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -41,7 +43,118 @@ class DashboardTest extends TestCase
 
     public static function protectedRoutes(): array
     {
-        return [['GET', '/dashboard'], ['GET', '/logs'], ['GET', '/apis'], ['GET', '/dashboard/catalog'], ['GET', '/dashboard/fwa'], ['POST', '/dashboard/catalog/refresh'], ['POST', '/dashboard/fwa/sync'], ['POST', '/logout']];
+        return [['GET', '/dashboard'], ['GET', '/logs'], ['GET', '/apis'], ['GET', '/dashboard/catalog'], ['GET', '/dashboard/fwa'], ['GET', '/dashboard/fwa/postpaid'], ['POST', '/dashboard/ill/refresh'], ['POST', '/dashboard/catalog/refresh'], ['POST', '/dashboard/fwa/sync'], ['POST', '/logout']];
+    }
+
+    public function test_dashboard_has_unified_fwa_lookup_and_ill_cache_refresh(): void
+    {
+        $this->actingAs(new User(['name' => 'operator']))->get('/dashboard')
+            ->assertSee('Mobile catalog')->assertSee('FWA broadband')->assertSee('Refresh ILL cache')
+            ->assertDontSee('value="postpaid-fwa"', false)->assertDontSee('data-postpaid-fwa-url', false)
+            ->assertDontSee('id="subscriber-type"', false)->assertDontSee('name="type"', false)
+            ->assertDontSee('<option value="postpaid-fwa">Postpaid FWA</option>', false)
+            ->assertSee(route('dashboard.fwa'))->assertSee(route('dashboard.ill.refresh'));
+    }
+
+    public function test_postpaid_fwa_lookup_returns_postpaid_fwa_details(): void
+    {
+        $result = [
+            'success' => true,
+            'subscription' => 'Postpaid',
+            'BasePlan' => '5G Unlimited',
+            'bandwidth' => '5GHome 1477_Postpaid',
+            'subscriptions' => [
+                [
+                    'planId' => '1801771352',
+                    'planName' => '5GHome 1477_Postpaid',
+                    'status' => '1',
+                    'is_booster' => 'N',
+                ],
+            ],
+            'currentBasePlan' => [
+                'Id' => 1801771352,
+                'Name' => '5GHome 1477_Postpaid',
+                'sim_type' => 'Postpaid',
+                'base_plan' => '5G',
+                'is_booster' => 'N',
+                'status' => 'new',
+                'price' => 'Nu. 1477',
+                'data_cap' => '300 GB',
+                'max_speed' => '15 Mbps',
+                'default_speed' => '2 Mbps',
+            ],
+            'basePlanOfferings' => [
+                [
+                    'Id' => 1201771411,
+                    'Name' => '5GHome 1777_Postpaid',
+                ],
+            ],
+            'addOnOfferings' => [
+                [
+                    'Id' => 1304191889,
+                    'Name' => 'Booster 150_Postpaid',
+                ],
+            ],
+            'usage' => [
+                [
+                    'type' => '5G FWA',
+                    'freeUnitType' => 'C_Free_FluX_National_NoRoam_GPRS_5GFWA',
+                    'offeringId' => '1801771352',
+                    'planName' => '5GHome 1477_Postpaid',
+                    'dataCap' => '300 GB',
+                    'initialAmountRaw' => 300,
+                    'remainingAmountRaw' => 164.64,
+                    'initialAmount' => '300 GB',
+                    'remainingAmount' => '164.64 GB',
+                    'showAddOnPlans' => false,
+                ],
+            ],
+        ];
+
+        $this->mock(PostpaidFwaPlanService::class)
+            ->shouldReceive('getPlans')
+            ->once()
+            ->with('12345678')
+            ->andReturn($result);
+
+        $this->actingAs(new User(['name' => 'operator']))
+            ->getJson('/dashboard/fwa/postpaid?service_id=12345678')
+            ->assertExactJson([
+                'service_id' => '12345678',
+                ...$result,
+            ]);
+    }
+
+    public function test_postpaid_fwa_lookup_requires_a_service_number(): void
+    {
+        $this->mock(PostpaidFwaPlanService::class)->shouldNotReceive('getPlans');
+
+        $this->actingAs(new User(['name' => 'operator']))->getJson('/dashboard/fwa/postpaid')
+            ->assertUnprocessable()->assertJsonValidationErrors(['service_id']);
+    }
+
+    public function test_ill_cache_refresh_returns_the_offering_count_and_is_rate_limited(): void
+    {
+        $this->mock(IllOfferingRepository::class)->shouldReceive('refreshCache')->times(6)->andReturn(['offerings_cached' => 12]);
+        $this->actingAs(new User(['name' => 'operator']));
+
+        for ($attempt = 0; $attempt < 6; $attempt++) {
+            $this->postJson('/dashboard/ill/refresh')->assertExactJson([
+                'success' => true,
+                'message' => 'ILL offerings cache refreshed successfully.',
+                'offerings_cached' => 12,
+            ]);
+        }
+
+        $this->postJson('/dashboard/ill/refresh')->assertTooManyRequests();
+    }
+
+    public function test_ill_cache_refresh_failure_is_reported(): void
+    {
+        $this->mock(IllOfferingRepository::class)->shouldReceive('refreshCache')->once()->andThrow(new \RuntimeException('Source unavailable'));
+
+        $this->actingAs(new User(['name' => 'operator']))->postJson('/dashboard/ill/refresh')
+            ->assertStatus(500)->assertExactJson(['success' => false, 'message' => 'ILL offerings cache refresh failed.']);
     }
 
     #[DataProvider('protectedRoutes')]
@@ -99,13 +212,13 @@ class DashboardTest extends TestCase
 
     public function test_catalog_lookup_uses_existing_service(): void
     {
-        $this->mock(CatalogService::class)->shouldReceive('getCatalog')->once()->with('12345678', 'prepaid')->andReturn(['poId' => '123', 'dataPlans' => []]);
-        $this->actingAs(new User(['name' => 'operator']))->getJson('/dashboard/catalog?service_id=12345678&type=prepaid')->assertExactJson(['poId' => '123', 'dataPlans' => []]);
+        $this->mock(CatalogService::class)->shouldReceive('getCatalog')->once()->with('12345678')->andReturn(['poId' => '123', 'dataPlans' => []]);
+        $this->actingAs(new User(['name' => 'operator']))->getJson('/dashboard/catalog?service_id=12345678')->assertExactJson(['poId' => '123', 'dataPlans' => []]);
     }
 
     public function test_lookup_rejects_invalid_input(): void
     {
-        $this->actingAs(new User(['name' => 'operator']))->getJson('/dashboard/catalog?type=invalid')->assertUnprocessable()->assertJsonValidationErrors(['service_id', 'type']);
+        $this->actingAs(new User(['name' => 'operator']))->getJson('/dashboard/catalog')->assertUnprocessable()->assertJsonValidationErrors(['service_id']);
     }
 
     public function test_logs_filter_and_paginate_existing_records(): void

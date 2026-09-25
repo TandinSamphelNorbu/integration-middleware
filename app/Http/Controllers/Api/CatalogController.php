@@ -19,8 +19,7 @@ class CatalogController extends Controller
     {
         try {
             $catalog = $this->catalogService->getCatalog(
-                $request->input('service_id'),
-                $request->input('type')
+                $request->validated('service_id')
             );
 
             return response()->json($catalog);

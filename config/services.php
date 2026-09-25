@@ -36,9 +36,14 @@ return [
     ],
 
     'crm_6d' => [
-    'url' => env('CRM_6D_URL'),
-    'username' => env('CRM_6D_USERNAME'),
-    'password' => env('CRM_6D_PASSWORD'),
+        'url' => env('CRM_6D_URL'),
+        'username' => env('CRM_6D_USERNAME'),
+        'password' => env('CRM_6D_PASSWORD'),
+    ],
+
+    'cbs' => [
+        'url' => env('CBS_URL'),
+        'password' => env('CBS_PASSWORD'),
     ],
 
 ];

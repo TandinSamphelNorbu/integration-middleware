@@ -46,7 +46,7 @@ class OperationsController extends Controller
         $descriptions = [
             'api/v1/login' => ['Sign in', 'Exchange a username and password for a bearer token.', 'name, password'],
             'api/v1/user' => ['Current user', 'Read the authenticated user profile.', 'None'],
-            'api/v1/catalog' => ['Mobile catalog', 'Find eligible mobile plans for a subscriber.', 'service_id, type (prepaid or postpaid)'],
+            'api/v1/catalog' => ['Mobile catalog', 'Find eligible mobile plans for a subscriber.', 'service_id'],
             'api/v1/catalog/refresh' => ['Refresh catalog', 'Reload cached plans and student numbers.', 'None'],
             'api/v1/fwa/plans' => ['FWA plans', 'Find eligible 4G or 5G fixed wireless plans.', 'service_id'],
             'api/v1/fwa/sync' => ['Sync FWA plans', 'Synchronize local plans from the source catalog.', 'None'],

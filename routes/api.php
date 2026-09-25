@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\FwaPlanController;
 use App\Http\Controllers\Api\FwaPlanSyncController;
+use App\Http\Controllers\Api\IllCacheController;
+use App\Http\Controllers\Api\PostpaidFwaPlanController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -34,5 +36,9 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/fwa/plans', [FwaPlanController::class, 'index']);
 
     Route::post('/fwa/sync', [FwaPlanSyncController::class, 'sync']);
+
+    Route::post('/ill/refresh', [IllCacheController::class, 'refresh']);
+
+    Route::get('/fwa/postpaid/plans', [PostpaidFwaPlanController::class, 'index']);
 
 });

@@ -11,10 +11,10 @@ class CatalogService
         private CatalogRepository $catalogRepository
     ) {}
 
-    public function getCatalog(string $serviceId, string $type): array
+    public function getCatalog(string $serviceId): array
     {
         $eligibility = $this->eligibilityService
-            ->getEligibility($serviceId, $type);
+            ->getEligibility($serviceId);
 
         $plans = $this->catalogRepository
             ->getEligiblePlansFromCache($eligibility);
