@@ -69,10 +69,42 @@ function appendDetails(target, details) {
 function postpaidPlanCard(plan, includeSpeeds = true) {
     const card = element('article', 'rounded-xl border border-slate-200 p-5');
     card.append(element('h4', 'font-semibold', plan.Name ?? 'Unnamed plan'));
-    const details = [['Price', formatPostpaidPrice(plan.price)], ['Data Cap', plan.data_cap]];
-    if (includeSpeeds) details.push(['Maximum Speed', plan.max_speed], ['Default Speed', plan.default_speed]);
+    const isTarget = plan.id !== undefined;
+    const details = isTarget
+        ? [['Plan ID', plan.id], ['Category', plan['5GOr4G']], ['Data Cap', `${plan.MaxGB} GB`], ['Maximum Speed', plan.MaxSpeed], ['CBS ID', plan.CBSId], ['CRM offering ID', plan.CRMOfferingId]]
+        : [['Price', formatPostpaidPrice(plan.price)], ['Data Cap', plan.data_cap]];
+    if (!isTarget && includeSpeeds) details.push(['Maximum Speed', plan.max_speed], ['Default Speed', plan.default_speed]);
     appendDetails(card, details);
     return card;
+}
+
+function planSelection(target) {
+    const summary = element('section', 'mb-6 rounded-xl border border-teal-200 bg-teal-50 p-5');
+    summary.setAttribute('aria-live', 'polite');
+    summary.hidden = true;
+    target.append(summary);
+    const choices = [];
+    return (card, name, details) => {
+        const button = element('button', 'button-secondary mt-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700', 'Select plan');
+        button.type = 'button';
+        button.setAttribute('aria-pressed', 'false');
+        button.setAttribute('aria-label', `Select ${name}`);
+        choices.push({ card, button });
+        button.addEventListener('click', () => {
+            for (const choice of choices) {
+                const selected = choice.button === button;
+                choice.button.setAttribute('aria-pressed', String(selected));
+                choice.button.textContent = selected ? 'Selected' : 'Select plan';
+                choice.card.classList.toggle('border-teal-600', selected);
+                choice.card.classList.toggle('border-slate-200', !selected);
+            }
+            summary.replaceChildren(element('h3', 'font-semibold text-teal-900', 'Selected plan'), element('p', 'mt-2 text-sm', name));
+            appendDetails(summary, details);
+            summary.append(element('p', 'mt-4 text-sm text-teal-900', 'Selection is for review only. No service change has been submitted.'));
+            summary.hidden = false;
+        });
+        card.append(button);
+    };
 }
 
 function renderPostpaidPlans(data, target) {
@@ -118,8 +150,13 @@ function renderPostpaidPlans(data, target) {
             group.append(element('p', 'text-sm text-slate-500', emptyMessage));
             continue;
         }
+        const selectPlan = includeSpeeds ? planSelection(group) : null;
         const grid = element('div', 'mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3');
-        for (const plan of plans) grid.append(postpaidPlanCard(plan, includeSpeeds));
+        for (const plan of plans) {
+            const card = postpaidPlanCard(plan, includeSpeeds);
+            if (selectPlan && plan.id !== undefined) selectPlan(card, plan.Name, [['Plan ID', plan.id], ['Category', plan['5GOr4G']], ['CBS ID', plan.CBSId], ['CRM offering ID', plan.CRMOfferingId]]);
+            grid.append(card);
+        }
         group.append(grid);
     }
     return count;
@@ -128,15 +165,19 @@ function renderPostpaidPlans(data, target) {
 function renderIllPlans(data, target) {
     if (!data.base_plan || !Array.isArray(data.addons)) throw new Error('Unexpected ILL response.');
     appendDetails(target, [['Subscriber type', data.subscription], ['Base plan', data.base_plan.name], ['Base plan ID', data.base_plan.id]]);
+    target.append(element('h3', 'mb-4 mt-6 font-semibold', `Available ILL Plans (${data.addons.length})`));
+    const selectPlan = planSelection(target);
     const grid = element('div', 'mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3');
     for (const addon of data.addons) {
         const card = element('article', 'rounded-xl border border-slate-200 p-5');
         card.append(element('h3', 'font-semibold', addon.name));
-        appendDetails(card, [['Add-on ID', addon.id]]);
+        const details = [['Plan ID', addon.id], ['Bandwidth', `${addon.bandwidth} Mbps`], ['Service type', addon.service_type], ['CRM offering ID', addon.crm_offering_id]];
+        appendDetails(card, details);
+        selectPlan(card, addon.name, details);
         grid.append(card);
     }
     target.append(grid);
-    if (!data.addons.length) target.append(element('p', 'py-10 text-center text-sm text-slate-500', 'No optional add-ons are mapped to this base plan.'));
+    if (!data.addons.length) target.append(element('p', 'py-10 text-center text-sm text-slate-500', 'No selectable ILL plans are available for this subscriber.'));
     return data.addons.length;
 }
 
@@ -168,7 +209,7 @@ if (form) {
             const total = selectedSource === 'ill' ? renderIllPlans(data, results) : isPostpaid ? renderPostpaidPlans(data, results) : renderPlans(data, selectedSource, results);
             count.textContent = `${total} plans`;
             status.textContent = selectedSource === 'ill'
-                ? `Results for ${values.get('service_id')} ? ${data.base_plan.name} ? Optional add-ons`
+                ? `Results for ${values.get('service_id')} · ${data.base_plan.name} · Normal ILL plans`
                 : isPostpaid
                 ? `Results for ${values.get('service_id')} · ${data.subscription} · ${data.currentBasePlan?.Name || data.bandwidth || 'Current plan unavailable'}`
                 : `Results for ${values.get('service_id')} · Primary offering ${data.poId ?? data.primary_offering_id ?? '—'}`;

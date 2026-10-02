@@ -45,13 +45,14 @@ class OperationsController extends Controller
     {
         $descriptions = [
             'api/v1/login' => ['Sign in', 'Exchange a username and password for a bearer token.', 'name, password'],
-            'api/v1/ill/catalog' => ['ILL subscriber catalog', 'Look up optional add-ons for a subscriber on ILL_Main_Offering.', 'service_id (required)'],
+            'api/v1/ill/catalog' => ['ILL subscriber catalog', 'Find Normal ILL plans with bandwidth, service type, and plan IDs for an eligible subscriber.', 'service_id (required)'],
             'api/v1/ill/offerings/{basePlanId}/addons' => ['ILL offering mappings', 'Read local add-on mappings for the basePlanId in the path. No subscriber lookup.', 'base_plan_name (optional; must match the stored name)'],
             'api/v1/ill/refresh' => ['Refresh ILL cache', 'Refresh the separate leased-line offerings cache. Does not update local ILL mappings.', 'None'],
             'api/v1/user' => ['Current user', 'Read the authenticated user profile.', 'None'],
             'api/v1/catalog' => ['Mobile catalog', 'Find eligible mobile plans for a subscriber.', 'service_id'],
             'api/v1/catalog/refresh' => ['Refresh catalog', 'Reload cached plans and student numbers.', 'None'],
             'api/v1/fwa/plans' => ['FWA plans', 'Find eligible 4G or 5G fixed wireless plans.', 'service_id'],
+            'api/v1/fwa/postpaid/plans' => ['Postpaid FWA plans', 'Find eligible postpaid 4G/5G target plans. Each plan ID identifies the selectable source row.', 'service_id (required)'],
             'api/v1/fwa/sync' => ['Sync FWA plans', 'Synchronize local plans from the source catalog.', 'None'],
         ];
 

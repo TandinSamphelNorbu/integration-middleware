@@ -7,7 +7,7 @@
 </div>
 <section class="panel p-6" aria-labelledby="mapping-search-title">
     <h2 id="mapping-search-title" class="font-semibold">Look up a base plan</h2>
-    <p class="mt-2 text-sm text-slate-500">This lookup shows configured offerings. To check subscriber eligibility, choose ILL leased line in the plan workspace.</p>
+    <p class="mt-2 text-sm text-slate-500">This page shows saved add-on mappings. To find selectable Normal ILL plans with bandwidth and service type, choose ILL leased line in the plan workspace.</p>
     <form method="GET" action="{{ route('ill') }}" class="mt-5 grid items-end gap-5 md:grid-cols-[1fr_1.5fr_auto]">
         <div><label for="base-plan-id" class="field-label">Base plan ID</label><input id="base-plan-id" name="base_plan_id" class="field" value="{{ $basePlanId }}" required maxlength="50" aria-describedby="base-id-help"><p id="base-id-help" class="mt-2 text-xs text-slate-500">For example, 109.</p></div>
         <div><label for="base-plan-name" class="field-label">Base plan name <span class="font-normal text-slate-400">(optional)</span></label><input id="base-plan-name" name="base_plan_name" class="field" value="{{ $basePlanName }}" maxlength="255" placeholder="ILL Main Offering"><p class="mt-2 text-xs text-slate-500">If supplied, the name must match this base plan.</p></div>

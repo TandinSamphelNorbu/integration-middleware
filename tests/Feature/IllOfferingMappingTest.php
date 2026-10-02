@@ -6,6 +6,7 @@ use App\Http\Middleware\LogApiRequest;
 use App\Models\IllOfferingMapping;
 use App\Models\User;
 use App\Repositories\IllOfferingMappingRepository;
+use App\Repositories\LeasedlineCatalogRepository;
 use App\Services\IllOfferingMappingService;
 use App\Services\SubscriberService;
 use Database\Seeders\IllOfferingMappingSeeder;
@@ -233,18 +234,20 @@ class IllOfferingMappingTest extends TestCase
             ->assertDontSee('<script>alert(1)</script>', false);
     }
 
-    public function test_web_ill_subscriber_lookup_uses_existing_customer_and_local_mapping_services(): void
+    public function test_web_ill_subscriber_lookup_uses_customer_and_normal_catalog_services(): void
     {
         $this->createMappings();
         $this->mock(SubscriberService::class)->shouldReceive('getIllCustomerData')->once()->with('12345678')
             ->andReturn(['success' => true, 'BasePlan' => 'ILL_Main_Offering', 'subscription' => 'Postpaid']);
+        $plans = [['id' => 34, 'crm_offering_id' => 28, 'name' => '20 Mbps Standard 13500 New', 'bandwidth' => 20, 'service_type' => 'Standard']];
+        $this->mock(LeasedlineCatalogRepository::class)->shouldReceive('getNormalOfferings')->once()->andReturn(collect($plans));
 
         $this->actingAs(User::factory()->make())->getJson('/dashboard/ill/catalog?service_id=12345678')
             ->assertOk()->assertExactJson([
                 'success' => true, 'service_id' => '12345678', 'subscription' => 'Postpaid',
                 'crm_base_plan' => 'ILL_Main_Offering',
                 'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
-                'addons' => $this->expectedAddons(),
+                'addons' => $plans,
             ]);
     }
 }

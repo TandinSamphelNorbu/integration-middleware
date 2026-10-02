@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Middleware\LogApiRequest;
 use App\Models\User;
 use App\Repositories\IllOfferingRepository;
+use App\Repositories\LeasedlineCatalogRepository;
 use App\Services\CbsFwaUsageService;
 use App\Services\FwaPlanResolver;
 use App\Services\FwaPlanService;
@@ -119,6 +120,8 @@ class FwaPlansTest extends TestCase
         $repository->shouldReceive('getCurrentPlan')->once()->with('No Active Bandwidth')->andReturnNull();
         $repository->shouldNotReceive('getAlternativeBasePlans');
         $repository->shouldNotReceive('getBoosterPlans');
+        $this->mock(LeasedlineCatalogRepository::class)->shouldReceive('getPostpaidFwaOfferings')->once()
+            ->with('5G ILL')->andReturn(collect());
         $this->mock(CbsFwaUsageService::class)->shouldReceive('getUsage')->once()->with('12345678')->andReturn([]);
 
         $service = app(PostpaidFwaPlanService::class);
@@ -127,7 +130,7 @@ class FwaPlansTest extends TestCase
         $this->assertSame([
             'success' => true, 'subscription' => 'Postpaid', 'BasePlan' => '5G Unlimited',
             'bandwidth' => 'No Active Bandwidth', 'subscriptions' => [], 'currentBasePlan' => null,
-            'basePlanOfferings' => false, 'addOnOfferings' => false, 'usage' => [],
+            'basePlanOfferings' => [], 'addOnOfferings' => false, 'usage' => [],
         ], $result);
     }
 

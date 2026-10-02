@@ -3,13 +3,15 @@
 namespace App\Services;
 
 use App\Repositories\IllOfferingRepository;
+use App\Repositories\LeasedlineCatalogRepository;
 
 class PostpaidFwaPlanService
 {
     public function __construct(
         private SubscriberService $subscriberService,
         private IllOfferingRepository $illOfferingRepository,
-        private CbsFwaUsageService $cbsFwaUsageService
+        private CbsFwaUsageService $cbsFwaUsageService,
+        private LeasedlineCatalogRepository $leasedlineCatalogRepository
     ) {}
 
     /**
@@ -24,6 +26,10 @@ class PostpaidFwaPlanService
             throw new \RuntimeException(
                 'Unable to retrieve ILL customer details.'
             );
+        }
+
+        if (($customer['subscription'] ?? null) !== 'Postpaid') {
+            throw new \RuntimeException('Subscriber is not eligible for postpaid FWA catalog.');
         }
 
         $service = $this->subscriberService
@@ -51,31 +57,20 @@ class PostpaidFwaPlanService
         $basePlanOfferings = false;
         $addOnOfferings = false;
 
-        /*
-        * Preserve the exact legacy eligibility gate.
-        */
-        $basePlanType = match ($customerBasePlan) {
-            '5G Unlimited' => '5G',
-            '4G Home Unlimited Postpaid' => '4G',
+        $category = match ($customerBasePlan) {
+            '5G Unlimited' => '5G ILL',
+            '4G Home Unlimited Postpaid' => '4G ILL',
             default => null,
         };
 
-        /*
-        * Alternatives and boosters are only returned when:
-        *
-        * 1. Customer has one of the supported BasePlans
-        * 2. Current bandwidth exists in leasedlineofferings
-        */
-        if ($basePlanType !== null && $currentBasePlan !== null) {
-            $basePlanOfferings = $this->illOfferingRepository
-                ->getAlternativeBasePlans(
-                    $basePlanType,
-                    $subscription,
-                    $bandwidth
-                )
-                ->values()
-                ->toArray();
+        if ($category !== null) {
+            $basePlanOfferings = $this->leasedlineCatalogRepository
+                ->getPostpaidFwaOfferings($category)
+                ->reject(fn (array $offering): bool => $offering['Name'] === $bandwidth)
+                ->values()->all();
+        }
 
+        if ($category !== null && $currentBasePlan !== null) {
             $addOnOfferings = $this->illOfferingRepository
                 ->getBoosterPlans($subscription)
                 ->values()

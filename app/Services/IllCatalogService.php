@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
+use App\Repositories\LeasedlineCatalogRepository;
 use RuntimeException;
 
 class IllCatalogService
 {
     public function __construct(
         private SubscriberService $subscriberService,
-        private IllOfferingMappingService $illOfferingMappingService
+        private LeasedlineCatalogRepository $leasedlineCatalogRepository
     ) {}
 
     public function getCatalog(string $serviceId): array
@@ -30,22 +31,11 @@ class IllCatalogService
             );
         }
 
-        /*
-         * Confirmed mapping:
-         *
-         * CRM:   ILL_Main_Offering
-         * Local: 109 / ILL Main Offering
-         */
-        $catalog = $this->illOfferingMappingService->getAddons(
-            '109',
-            'ILL Main Offering'
-        );
-
         return [
             'subscription' => $customer['subscription'] ?? null,
             'crm_base_plan' => $crmBasePlan,
-            'base_plan' => $catalog['base_plan'],
-            'addons' => $catalog['addons'],
+            'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
+            'addons' => $this->leasedlineCatalogRepository->getNormalOfferings()->all(),
         ];
     }
 }
