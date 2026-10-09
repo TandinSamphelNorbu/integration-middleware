@@ -4,5 +4,5 @@ namespace App\Constants;
 
 class CrmConstants
 {
-    public const SOURCE_NODE = 'MyTashiCell';
+    public const SOURCE_NODE = 'AIBot';
 }
