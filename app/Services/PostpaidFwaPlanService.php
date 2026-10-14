@@ -58,7 +58,7 @@ class PostpaidFwaPlanService
         $addOnOfferings = false;
 
         $category = match ($customerBasePlan) {
-            '5G Unlimited' => '5G ILL',
+            '5G Unlimited', '5G Unlimited New' => '5G ILL',
             '4G Home Unlimited Postpaid' => '4G ILL',
             default => null,
         };

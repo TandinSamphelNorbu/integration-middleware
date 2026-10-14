@@ -20,6 +20,7 @@ class CatalogService
             ->getEligiblePlansFromCache($eligibility);
 
         $dataPlans = $plans
+            ->filter(fn (object $plan): bool => $plan->CategoryId !== null)
             ->groupBy('CategoryId')
             ->map(function ($categoryPlans) {
 

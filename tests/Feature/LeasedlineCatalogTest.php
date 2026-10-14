@@ -65,23 +65,28 @@ class LeasedlineCatalogTest extends TestCase
 
     public static function illEndpoints(): array
     {
-        return ['API' => ['/api/v1/ill/catalog', 'sanctum'], 'dashboard' => ['/dashboard/ill/catalog', 'web']];
+        return [
+            'API legacy name' => ['/api/v1/ill/catalog', 'sanctum', 'ILL_Main_Offering'],
+            'API spaced name' => ['/api/v1/ill/catalog', 'sanctum', 'ILL Main Offering'],
+            'dashboard legacy name' => ['/dashboard/ill/catalog', 'web', 'ILL_Main_Offering'],
+            'dashboard spaced name' => ['/dashboard/ill/catalog', 'web', 'ILL Main Offering'],
+        ];
     }
 
     #[DataProvider('illEndpoints')]
-    public function test_normal_ill_reads_leasedline_and_preserves_subscriber_response(string $endpoint, string $guard): void
+    public function test_normal_ill_reads_leasedline_and_preserves_subscriber_response(string $endpoint, string $guard, string $basePlan): void
     {
         $this->createSourceTables();
         $this->insertNormal();
         Http::preventStrayRequests();
         $this->mock(SubscriberService::class)->shouldReceive('getIllCustomerData')->once()->with('12345678')
-            ->andReturn(['success' => true, 'subscription' => 'Postpaid', 'BasePlan' => 'ILL_Main_Offering']);
+            ->andReturn(['success' => true, 'subscription' => 'Postpaid', 'BasePlan' => $basePlan]);
         DB::connection('leasedline')->enableQueryLog();
 
         $this->actingAs(User::factory()->make(), $guard)->getJson($endpoint.'?service_id=12345678')
             ->assertOk()->assertExactJson([
                 'success' => true, 'service_id' => '12345678', 'subscription' => 'Postpaid',
-                'crm_base_plan' => 'ILL_Main_Offering', 'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
+                'crm_base_plan' => $basePlan, 'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
                 'addons' => [[
                     'id' => 34, 'crm_offering_id' => 28, 'name' => '20 Mbps Standard 13500 New',
                     'bandwidth' => 20, 'service_type' => 'Standard',
@@ -253,12 +258,21 @@ class LeasedlineCatalogTest extends TestCase
         app(LeasedlineCatalogRepository::class)->getPostpaidFwaOfferings("5G ILL' OR 1=1");
     }
 
-    public function test_postpaid_targets_exclude_current_name_and_preserve_legacy_boosters_and_usage(): void
+    public static function postpaid5gBasePlans(): array
+    {
+        return [
+            'legacy base plan' => ['5G Unlimited'],
+            'new base plan' => ['5G Unlimited New'],
+        ];
+    }
+
+    #[DataProvider('postpaid5gBasePlans')]
+    public function test_postpaid_targets_exclude_current_name_and_preserve_legacy_boosters_and_usage(string $basePlan): void
     {
         $this->createSourceTables();
         $this->insertFwa();
         $this->insertFwa(['Id' => 28, 'CBSId' => '123456', 'Name' => 'Alternative_Postpaid']);
-        $customer = ['success' => true, 'subscription' => 'Postpaid', 'BasePlan' => '5G Unlimited'];
+        $customer = ['success' => true, 'subscription' => 'Postpaid', 'BasePlan' => $basePlan];
         $current = ['Id' => 1801771352, 'Name' => '5GHome 1777_Postpaid'];
         $boosters = [['Id' => 1304191889, 'Name' => 'Booster']];
         $subscriptions = [['planId' => '1801771352']];

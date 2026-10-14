@@ -56,7 +56,11 @@ class CatalogClassificationTest extends TestCase
             'DataBucket' => '10 GB', 'Validity' => '30 days', 'SubscriptionType' => $subscriptionType,
             'Type' => 1, 'IsStudentPlan' => 0, 'Only4G' => 0, 'ForPO' => null, 'NotForPO' => null, 'NotFor5G' => 0,
         ];
-        Cache::put('catalog.base_data', [$plan, [...$plan, 'Id' => 11, 'SubscriptionType' => $subscriptionType === 1 ? 2 : 1]], 300);
+        Cache::put('catalog.base_data', [
+            [...$plan, 'Id' => 1295558122, 'Name' => 'Monthly 5GB Data Free_Prepaid', 'CategoryId' => null, 'Category' => null, 'DisplayOrder' => null],
+            $plan,
+            [...$plan, 'Id' => 11, 'SubscriptionType' => $subscriptionType === 1 ? 2 : 1],
+        ], 300);
 
         $this->actingAs(User::factory()->make(), 'sanctum')->getJson('/api/v1/catalog?service_id=12345678'.$query)
             ->assertOk()->assertExactJson([

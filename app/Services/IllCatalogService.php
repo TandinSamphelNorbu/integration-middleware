@@ -25,7 +25,7 @@ class IllCatalogService
 
         $crmBasePlan = $customer['BasePlan'] ?? null;
 
-        if ($crmBasePlan !== 'ILL_Main_Offering') {
+        if (! in_array($crmBasePlan, ['ILL_Main_Offering', 'ILL Main Offering'], true)) {
             throw new RuntimeException(
                 'Subscriber is not eligible for ILL catalog.'
             );
