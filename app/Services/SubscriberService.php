@@ -13,7 +13,8 @@ class SubscriberService
 {
     public function __construct(
         private CrmAuthService $crmAuthService,
-        private IllOfferingRepository $illOfferingRepository
+        private IllOfferingRepository $illOfferingRepository,
+        private IntegrationEndpoints $integrationEndpoints
     ) {}
 
     private function queryIllService(string $serviceId)
@@ -21,7 +22,7 @@ class SubscriberService
         $token = $this->crmAuthService->getAccessToken();
 
         $baseUrl = rtrim(
-            config('services.crm_6d.url'),
+            $this->integrationEndpoints->crmUrl(),
             '/'
         );
 
@@ -48,7 +49,7 @@ class SubscriberService
         $token = $this->crmAuthService->getAccessToken();
 
         $baseUrl = rtrim(
-            config('services.crm_6d.url'),
+            $this->integrationEndpoints->crmUrl(),
             '/'
         );
 
@@ -316,7 +317,7 @@ class SubscriberService
     private function queryPlan(string $serviceId): Response
     {
         $token = $this->crmAuthService->getAccessToken();
-        $baseUrl = rtrim(config('services.crm_6d.url'), '/');
+        $baseUrl = rtrim($this->integrationEndpoints->crmUrl(), '/');
 
         try {
             return Http::withOptions([
@@ -383,7 +384,7 @@ class SubscriberService
     private function fetchHLR(string $serviceId): Response
     {
         $token = $this->crmAuthService->getAccessToken();
-        $baseUrl = rtrim(config('services.crm_6d.url'), '/');
+        $baseUrl = rtrim($this->integrationEndpoints->crmUrl(), '/');
 
         try {
             return Http::withOptions([

@@ -163,22 +163,28 @@ function renderPostpaidPlans(data, target) {
 }
 
 function renderIllPlans(data, target) {
-    if (!data.base_plan || !Array.isArray(data.addons)) throw new Error('Unexpected ILL response.');
+    const groups = ['Standard', 'Premium', 'GIN'].map(type => [type, data.addons?.[type]]);
+    if (!data.base_plan || groups.some(([, plans]) => !Array.isArray(plans))) throw new Error('Unexpected ILL response.');
+    const count = groups.reduce((total, [, plans]) => total + plans.length, 0);
     appendDetails(target, [['Subscriber type', data.subscription], ['Base plan', data.base_plan.name], ['Base plan ID', data.base_plan.id]]);
-    target.append(element('h3', 'mb-4 mt-6 font-semibold', `Available ILL Plans (${data.addons.length})`));
+    target.append(element('h3', 'mb-4 mt-6 font-semibold', `Available ILL Plans (${count})`));
     const selectPlan = planSelection(target);
-    const grid = element('div', 'mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3');
-    for (const addon of data.addons) {
-        const card = element('article', 'rounded-xl border border-slate-200 p-5');
-        card.append(element('h3', 'font-semibold', addon.name));
-        const details = [['Plan ID', addon.id], ['Bandwidth', `${addon.bandwidth} Mbps`], ['Service type', addon.service_type], ['CRM offering ID', addon.crm_offering_id]];
-        appendDetails(card, details);
-        selectPlan(card, addon.name, details);
-        grid.append(card);
+    for (const [type, plans] of groups) {
+        if (!plans.length) continue;
+        target.append(element('h4', 'mb-4 mt-6 font-semibold', `${type} (${plans.length})`));
+        const grid = element('div', 'mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3');
+        for (const addon of plans) {
+            const card = element('article', 'rounded-xl border border-slate-200 p-5');
+            card.append(element('h3', 'font-semibold', addon.name));
+            const details = [['Plan ID', addon.id], ['Bandwidth', `${addon.bandwidth} Mbps`], ['Service type', addon.service_type], ['CRM offering ID', addon.crm_offering_id]];
+            appendDetails(card, details);
+            selectPlan(card, addon.name, details);
+            grid.append(card);
+        }
+        target.append(grid);
     }
-    target.append(grid);
-    if (!data.addons.length) target.append(element('p', 'py-10 text-center text-sm text-slate-500', 'No selectable ILL plans are available for this subscriber.'));
-    return data.addons.length;
+    if (!count) target.append(element('p', 'py-10 text-center text-sm text-slate-500', 'No selectable ILL plans are available for this subscriber.'));
+    return count;
 }
 
 const form = document.querySelector('#lookup-form');

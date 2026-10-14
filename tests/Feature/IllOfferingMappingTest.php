@@ -247,7 +247,7 @@ class IllOfferingMappingTest extends TestCase
                 'success' => true, 'service_id' => '12345678', 'subscription' => 'Postpaid',
                 'crm_base_plan' => 'ILL_Main_Offering',
                 'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
-                'addons' => $plans,
+                'addons' => ['Standard' => $plans, 'Premium' => [], 'GIN' => []],
             ]);
     }
 }

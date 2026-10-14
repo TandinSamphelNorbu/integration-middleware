@@ -8,15 +8,17 @@ use Illuminate\Support\Facades\Http;
 
 class CrmAuthService
 {
+    public function __construct(private IntegrationEndpoints $integrationEndpoints) {}
+
     public function getAccessToken(): string
     {
-        $cachedToken = Cache::get('crm_6d_access_token');
+        $url = rtrim($this->integrationEndpoints->crmUrl(), '/');
+        $cacheKey = $this->integrationEndpoints->crmTokenCacheKey();
+        $cachedToken = Cache::get($cacheKey);
 
         if ($cachedToken) {
             return $cachedToken;
         }
-
-        $url = rtrim(config('services.crm_6d.url'), '/');
 
         try {
             $response = Http::withHeaders([
@@ -64,7 +66,7 @@ class CrmAuthService
 
         $ttl = $this->getTokenTtl($token);
 
-        Cache::put('crm_6d_access_token', $token, $ttl);
+        Cache::put($cacheKey, $token, $ttl);
 
         return $token;
     }
@@ -103,6 +105,6 @@ class CrmAuthService
 
     public function forgetAccessToken(): void
     {
-        Cache::forget('crm_6d_access_token');
+        Cache::forget($this->integrationEndpoints->crmTokenCacheKey());
     }
 }

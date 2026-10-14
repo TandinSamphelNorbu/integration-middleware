@@ -11,7 +11,8 @@ class CbsFwaUsageService
 {
     public function __construct(
         private CatalogRepository $catalogRepository,
-        private IllOfferingRepository $illOfferingRepository
+        private IllOfferingRepository $illOfferingRepository,
+        private IntegrationEndpoints $integrationEndpoints
     ) {}
 
     private const FREE_UNIT_5G_FWA =
@@ -25,7 +26,7 @@ class CbsFwaUsageService
 
     private function queryFreeUnits(string $serviceId): string
     {
-        $url = config('services.cbs.url');
+        $url = $this->integrationEndpoints->cbsUrl();
         $password = config('services.cbs.password');
 
         if (! $url || ! $password) {

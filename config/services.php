@@ -35,14 +35,23 @@ return [
         ],
     ],
 
+    'integration' => [
+        'test_users' => array_values(array_filter(
+            array_map('trim', explode(',', (string) env('INTEGRATION_TEST_USERS', ''))),
+            fn (string $username): bool => $username !== '',
+        )),
+    ],
+
     'crm_6d' => [
         'url' => env('CRM_6D_URL'),
+        'test_url' => env('CRM_6D_TEST_URL'),
         'username' => env('CRM_6D_USERNAME'),
         'password' => env('CRM_6D_PASSWORD'),
     ],
 
     'cbs' => [
         'url' => env('CBS_URL'),
+        'test_url' => env('CBS_TEST_URL'),
         'password' => env('CBS_PASSWORD'),
     ],
 

@@ -78,6 +78,9 @@ class LeasedlineCatalogTest extends TestCase
     {
         $this->createSourceTables();
         $this->insertNormal();
+        $this->insertNormal(['Id' => 35, 'CRMOfferingId' => 29, 'Name' => '50 Mbps Premium 33750']);
+        $this->insertNormal(['Id' => 36, 'CRMOfferingId' => 30, 'Name' => 'GIN 100 Mbps 50000']);
+        $this->insertNormal(['Id' => 37, 'CRMOfferingId' => 31, 'Name' => '10 Mbps Standard 7000']);
         Http::preventStrayRequests();
         $this->mock(SubscriberService::class)->shouldReceive('getIllCustomerData')->once()->with('12345678')
             ->andReturn(['success' => true, 'subscription' => 'Postpaid', 'BasePlan' => $basePlan]);
@@ -87,11 +90,30 @@ class LeasedlineCatalogTest extends TestCase
             ->assertOk()->assertExactJson([
                 'success' => true, 'service_id' => '12345678', 'subscription' => 'Postpaid',
                 'crm_base_plan' => $basePlan, 'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
-                'addons' => [[
-                    'id' => 34, 'crm_offering_id' => 28, 'name' => '20 Mbps Standard 13500 New',
-                    'bandwidth' => 20, 'service_type' => 'Standard',
-                    'start_date' => '0000-00-00', 'created_at' => '2023-09-11',
-                ]],
+                'addons' => [
+                    'Standard' => [
+                        [
+                            'id' => 37, 'crm_offering_id' => 31, 'name' => '10 Mbps Standard 7000',
+                            'bandwidth' => 10, 'service_type' => 'Standard',
+                            'start_date' => '0000-00-00', 'created_at' => '2023-09-11',
+                        ],
+                        [
+                            'id' => 34, 'crm_offering_id' => 28, 'name' => '20 Mbps Standard 13500 New',
+                            'bandwidth' => 20, 'service_type' => 'Standard',
+                            'start_date' => '0000-00-00', 'created_at' => '2023-09-11',
+                        ],
+                    ],
+                    'Premium' => [[
+                        'id' => 35, 'crm_offering_id' => 29, 'name' => '50 Mbps Premium 33750',
+                        'bandwidth' => 50, 'service_type' => 'Premium',
+                        'start_date' => '0000-00-00', 'created_at' => '2023-09-11',
+                    ]],
+                    'GIN' => [[
+                        'id' => 36, 'crm_offering_id' => 30, 'name' => 'GIN 100 Mbps 50000',
+                        'bandwidth' => 100, 'service_type' => 'GIN',
+                        'start_date' => '0000-00-00', 'created_at' => '2023-09-11',
+                    ]],
+                ],
             ]);
 
         $queries = DB::connection('leasedline')->getQueryLog();
@@ -99,6 +121,20 @@ class LeasedlineCatalogTest extends TestCase
         $this->assertStringContainsString('from "crm_ill_offering"', $queries[0]['query']);
         $this->assertStringStartsWith('select ', $queries[0]['query']);
         Http::assertNothingSent();
+    }
+
+    public function test_eligible_ill_subscriber_with_no_offerings_receives_three_empty_groups(): void
+    {
+        $this->createSourceTables();
+        $this->mock(SubscriberService::class)->shouldReceive('getIllCustomerData')->once()->with('12345678')
+            ->andReturn(['success' => true, 'subscription' => 'Postpaid', 'BasePlan' => 'ILL Main Offering']);
+
+        $this->actingAs(User::factory()->make(), 'sanctum')->getJson('/api/v1/ill/catalog?service_id=12345678')
+            ->assertOk()->assertExactJson([
+                'success' => true, 'service_id' => '12345678', 'subscription' => 'Postpaid',
+                'crm_base_plan' => 'ILL Main Offering', 'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
+                'addons' => ['Standard' => [], 'Premium' => [], 'GIN' => []],
+            ]);
     }
 
     public static function normalNames(): array

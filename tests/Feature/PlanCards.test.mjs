@@ -51,12 +51,15 @@ function render(functionName, data, source) {
 test('Normal ILL cards display bandwidth, canonical service type, and distinct IDs; selection stays local', () => {
     const { target, count } = render('renderIllPlans', {
         subscription: 'Postpaid', base_plan: { id: '109', name: 'ILL Main Offering' },
-        addons: [
-            { id: 34, crm_offering_id: 28, name: '<script>20 Mbps Standard</script>', bandwidth: 20, service_type: 'Standard' },
-            { id: 56, crm_offering_id: 673, name: '50 Mbps Premium', bandwidth: 50, service_type: 'Premium' },
-        ],
+        addons: {
+            Standard: [{ id: 34, crm_offering_id: 28, name: '<script>20 Mbps Standard</script>', bandwidth: 20, service_type: 'Standard' }],
+            Premium: [{ id: 56, crm_offering_id: 673, name: '50 Mbps Premium', bandwidth: 50, service_type: 'Premium' }],
+            GIN: [{ id: 57, crm_offering_id: 674, name: 'GIN 100 Mbps', bandwidth: 100, service_type: 'GIN' }],
+        },
     });
-    assert.equal(count, 2);
+    assert.equal(count, 3);
+    assert.match(target.textContent, /Available ILL Plans \(3\)/);
+    assert.deepEqual(allNodes(target).filter(node => node.tagName === 'h4').map(node => node.textContent), ['Standard (1)', 'Premium (1)', 'GIN (1)']);
     assert.match(target.textContent, /20 Mbps/);
     assert.match(target.textContent, /Service type Standard/);
     assert.match(target.textContent, /Plan ID 34/);
@@ -99,7 +102,7 @@ test('Postpaid FWA target cards select table Id while displaying CBS and CRM IDs
 });
 
 test('Empty Normal ILL catalog displays a controlled empty state without selection buttons', () => {
-    const { target, count } = render('renderIllPlans', { base_plan: { id: '109', name: 'ILL Main Offering' }, addons: [] });
+    const { target, count } = render('renderIllPlans', { base_plan: { id: '109', name: 'ILL Main Offering' }, addons: { Standard: [], Premium: [], GIN: [] } });
     assert.equal(count, 0);
     assert.match(target.textContent, /No selectable ILL plans are available/);
     assert.equal(allNodes(target).filter(node => node.tagName === 'button').length, 0);

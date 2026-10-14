@@ -31,11 +31,17 @@ class IllCatalogService
             );
         }
 
+        $addons = ['Standard' => [], 'Premium' => [], 'GIN' => []];
+
+        foreach ($this->leasedlineCatalogRepository->getNormalOfferings() as $offering) {
+            $addons[$offering['service_type']][] = $offering;
+        }
+
         return [
             'subscription' => $customer['subscription'] ?? null,
             'crm_base_plan' => $crmBasePlan,
             'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
-            'addons' => $this->leasedlineCatalogRepository->getNormalOfferings()->all(),
+            'addons' => $addons,
         ];
     }
 }

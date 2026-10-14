@@ -360,39 +360,135 @@ Authorization: Bearer <token>
 Accept: application/json
 ```
 
-`service_id` is required, must be a string, and may contain at most 20 characters. CRM eligibility is determined by the exact base plan `ILL_Main_Offering`; the returned local mapping uses ID `109`.
+Returns selectable Normal ILL offerings after checking the subscriber in CRM. This endpoint only reads data; it does not activate or change a plan.
 
-Example response (add-on list shortened):
+Use this endpoint for subscriber plan discovery instead of passing a base-plan ID to the local mapping lookup. The previous ID-based flow encountered cases where the supplied IDs did not match stored mappings, resulting in empty add-on lists. The catalog accepts the service number, dynamically fetches CRM subscriber details, verifies ILL eligibility, and returns offerings grouped into `Standard`, `Premium`, and `GIN`. No `base_plan_id` is required. The returned `base_plan.id` remains metadata; the offering list uses the existing catalog cache.
+
+Obtain a bearer token using the [login endpoint](#log-in). Use the same middleware URL for production and test requests.
+
+| Query parameter | Required | Type | Validation |
+| --- | --- | --- | --- |
+| `service_id` | Yes | String | At most 20 characters. Keep any leading zeros. |
+
+No request body is required. CRM's rate plan name must exactly match either `ILL_Main_Offering` or `ILL Main Offering` after surrounding whitespace is trimmed. The response preserves the CRM name and returns base-plan ID `109` with display name `ILL Main Offering`.
+
+Example request using curl (replace the URL and token for your installation):
+
+```bash
+curl --get 'http://localhost:8000/api/v1/ill/catalog' \
+  --data-urlencode 'service_id=100037634' \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Bearer YOUR_ACCESS_TOKEN'
+```
+
+Example HTTP 200 response (illustrative offering; the returned list depends on the catalog):
 
 ```json
 {
   "success": true,
-  "service_id": "12345678",
+  "service_id": "100037634",
   "subscription": "Postpaid",
-  "crm_base_plan": "ILL_Main_Offering",
+  "crm_base_plan": "ILL Main Offering",
   "base_plan": {
     "id": "109",
     "name": "ILL Main Offering"
   },
-  "addons": [
-    {
-      "id": "1303",
-      "name": "Home 5 Mbps 1500"
-    }
-  ]
+  "addons": {
+    "Standard": [
+      {
+        "id": 34,
+        "crm_offering_id": 28,
+        "name": "20 Mbps Standard 13500 New",
+        "bandwidth": 20,
+        "service_type": "Standard",
+        "start_date": "0000-00-00",
+        "created_at": "2023-09-11"
+      }
+    ],
+    "Premium": [],
+    "GIN": []
+  }
 }
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `success` | CRM eligibility and local mapping lookup completed. |
+| `success` | CRM eligibility and the catalog lookup completed successfully. |
 | `service_id` | The requested service number. |
-| `subscription` | Subscriber connection type reported by CRM. |
+| `subscription` | Subscriber connection type reported by CRM, or `null` when absent. |
 | `crm_base_plan` | CRM rate plan name used for ILL eligibility. |
-| `base_plan` | Local mapped base-plan ID and name. |
-| `addons` | Add-ons mapped to the eligible base plan; each item contains `id` and `name`. |
+| `base_plan` | Base-plan metadata: string ID `109` and name `ILL Main Offering`. |
+| `addons` | Object containing `Standard`, `Premium`, and `GIN` lists, in that order. All three keys are always present; empty categories contain `[]`. |
+| `addons.<category>[].id` | Integer row ID from `crm_ill_offering.Id`. |
+| `addons.<category>[].crm_offering_id` | Separate CRM offering identifier from `CRMOfferingId`; its JSON type follows the database value. |
+| `addons.<category>[].name` | Full offering name from the catalog. |
+| `addons.<category>[].bandwidth` | Positive numeric speed in Mbps, such as `20` or `2.5`. |
+| `addons.<category>[].service_type` | `Standard`, `Premium`, or `GIN`, matching the category key. |
+| `addons.<category>[].start_date` | Source date string or `null`; may contain a legacy zero date. |
+| `addons.<category>[].created_at` | Source creation date string or `null`. |
 
-An ineligible subscriber returns HTTP 422 with `success: false` and a message. Unexpected failures return HTTP 500 with a generic message.
+Clients must iterate each category list, for example `response.addons.Standard`. This replaces the previous flat `addons` array for the subscriber catalog. Within each category, offerings retain their name/source-ID order.
+
+The two offering identifiers have different meanings. Preserve both; do not substitute the source row `id` for `crm_offering_id`. Price, validity, and data allowance are not included in this response.
+
+#### Catalog selection and caching
+
+Offerings come from the `leasedline` database connection's `crm_ill_offering` table, ordered by name and then source ID. The service parses positive Mbps bandwidths and Standard, Premium, or GIN service types from offering names. Entries with unparseable names, blank CRM offering IDs, or ambiguous duplicate bandwidth/service-type combinations are excluded.
+
+CRM subscriber eligibility is checked on every request. The selectable offering list is cached for 12 hours under `ill.normal.offerings`; a cache miss reads and processes the source table. An expired or missing CRM authentication token adds an authentication call. This endpoint does not call CBS.
+
+`POST /api/v1/ill/refresh` refreshes the separate legacy ILL offering cache; it does not refresh this endpoint's `ill.normal.offerings` cache.
+
+#### Production and test routing
+
+The authenticated middleware username selects the CRM URL:
+
+| Logged-in username | CRM URL setting |
+| --- | --- |
+| Listed in the comma-separated `INTEGRATION_TEST_USERS` setting | `CRM_6D_TEST_URL` |
+| Any other username | `CRM_6D_URL` |
+
+Username matching is exact and case-sensitive. Request parameters cannot override the environment. Both environments use the configured shared CRM credentials, while CRM authentication tokens are cached separately. The leased-line database and offering cache remain shared. Missing test URL configuration returns an error rather than using production.
+
+#### Error responses
+
+Send `Accept: application/json` to receive JSON errors.
+
+| HTTP status | Condition | Response |
+| --- | --- | --- |
+| `401` | Missing or invalid middleware bearer token | JSON authentication error. |
+| `422` | Missing, non-string, or overlong `service_id` | Validation `message` and `errors.service_id`. |
+| `422` | CRM base plan is not one of the accepted ILL names | `success: false`, `message: Subscriber is not eligible for ILL catalog.` |
+| `422` | CRM customer lookup reports failure | `success: false`, `message: Unable to retrieve ILL customer details.` |
+| `422` | Missing CRM URL or an upstream authentication/lookup failure | `success: false` with the relevant integration message. |
+| `422` | Leased-line catalog source cannot be read on a cache miss | `success: false`, `message: Unable to retrieve leased-line catalog. Please try again later.` |
+| `500` | Unexpected application failure | `success: false`, `message: Unable to retrieve ILL catalog.` |
+
+Example ineligible-subscriber response:
+
+```json
+{
+  "success": false,
+  "message": "Subscriber is not eligible for ILL catalog."
+}
+```
+
+Example validation response for an omitted service ID:
+
+```json
+{
+  "message": "The service id field is required.",
+  "errors": {
+    "service_id": ["The service id field is required."]
+  }
+}
+```
+
+An eligible subscriber with no selectable offerings receives HTTP 200 with `success: true` and `addons: {"Standard": [], "Premium": [], "GIN": []}`.
+
+#### Difference from the local mapping endpoint
+
+`GET /api/v1/ill/offerings/{basePlanId}/addons` reads local `ill_offering_mappings` rows using the supplied base-plan ID. It makes no CRM eligibility check and returns add-on IDs and names. The subscriber catalog instead requires a service ID, checks CRM eligibility, and returns richer offerings from the leased-line catalog. The datasets and identifiers are not interchangeable.
 
 ## Common request errors
 

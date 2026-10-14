@@ -1,5 +1,26 @@
 # ILL offerings
 
+## Why the subscriber lookup changed
+
+The previous ILL lookup required the caller to pass a base-plan ID (`base_plan_id`, supplied as `{basePlanId}` in the route). During integration, these IDs were found not to match the stored mappings in some cases. A mismatched ID could therefore return no mapped add-ons even when the subscriber had an eligible ILL service.
+
+For subscriber plan discovery, use the service number instead:
+
+```http
+GET /api/v1/ill/catalog?service_id=100037634
+Authorization: Bearer <access_token>
+Accept: application/json
+```
+
+The middleware dynamically fetches the subscriber's details from CRM using `service_id`, verifies the ILL base-plan name, and returns selectable offerings from the leased-line catalog grouped into `Standard`, `Premium`, and `GIN`. Callers no longer need to find or pass a matching base-plan ID to discover ILL plans.
+
+| Flow | Caller supplies | Lookup behavior |
+| --- | --- | --- |
+| Previous mapping lookup: `/api/v1/ill/offerings/{basePlanId}/addons` | Base-plan ID | Reads local mappings for that exact ID; a missing mapping returns an empty list. |
+| Subscriber catalog: `/api/v1/ill/catalog` | Service number as `service_id` | Fetches CRM subscriber details, checks ILL eligibility, and returns grouped catalog offerings. |
+
+The mapping endpoint remains available for direct mapping lookups. The subscriber catalog still returns `base_plan.id: "109"` as metadata; it does not dynamically resolve a replacement base-plan ID. Subscriber details are fetched on each request, while the offering list uses the existing 12-hour cache.
+
 ## Operator UI
 
 Sign in to the operations workspace.
@@ -17,7 +38,9 @@ These screens are read-only. They do not activate offerings, create subscription
 
 The mapping lookup treats the base plan ID as authoritative. It never finds a different ID by name. Unknown IDs return `addons: []`, preserving the requested ID and supplied name (or `null` when omitted). A supplied name that differs from a known stored name produces a validation error.
 
-`IllCatalogService` first calls `SubscriberService::getIllCustomerData(service_id)` and requires the exact CRM base-plan name `ILL_Main_Offering`. The response retains base `109` / `ILL Main Offering`, but its selectable `addons` now come from `DB::connection('leasedline')->table('crm_ill_offering')`, ordered by `Name`, then `Id`. The local mapping table/service remains available for pair validation and the separate mapping lookup; its 12 mapped rows are no longer the subscriber catalog. This does not query CRM's live optional add-ons under base offering `109`.
+`IllCatalogService` first calls `SubscriberService::getIllCustomerData(service_id)` and accepts the exact CRM base-plan names `ILL_Main_Offering` and `ILL Main Offering`. The response retains base `109` / `ILL Main Offering`, but its selectable `addons` now come from `DB::connection('leasedline')->table('crm_ill_offering')`, ordered by `Name`, then `Id`. The local mapping table/service remains available for pair validation and the separate mapping lookup; its 12 mapped rows are no longer the subscriber catalog. This does not query CRM's live optional add-ons under base offering `109`.
+
+See the [ILL catalog API reference](API.md#get-the-eligible-subscribers-ill-catalog) for request examples, response fields, production/test routing, caching, and errors.
 
 ## API authentication
 
@@ -66,21 +89,25 @@ GET /api/v1/ill/catalog?service_id=12345678
   "subscription": "Postpaid",
   "crm_base_plan": "ILL_Main_Offering",
   "base_plan": { "id": "109", "name": "ILL Main Offering" },
-  "addons": [
-    {
-      "id": 34,
-      "crm_offering_id": 28,
-      "name": "20 Mbps Standard 13500 New",
-      "bandwidth": 20,
-      "service_type": "Standard",
-      "start_date": "0000-00-00",
-      "created_at": "2023-09-11"
-    }
-  ]
+  "addons": {
+    "Standard": [
+      {
+        "id": 34,
+        "crm_offering_id": 28,
+        "name": "20 Mbps Standard 13500 New",
+        "bandwidth": 20,
+        "service_type": "Standard",
+        "start_date": "0000-00-00",
+        "created_at": "2023-09-11"
+      }
+    ],
+    "Premium": [],
+    "GIN": []
+  }
 }
 ```
 
-The example list is shortened. An ineligible subscriber is rejected with 422. Source failures return a controlled message with no SQL, connection details, or stack trace.
+The example is shortened. `addons` always contains `Standard`, `Premium`, and `GIN` arrays; empty categories return `[]`. Plans within each category retain their name/source-ID order. The subscriber dashboard renders a separate section for each nonempty category. The local mapping lookup still returns its flat list of add-ons. An ineligible subscriber is rejected with 422. Source failures return a controlled message with no SQL, connection details, or stack trace.
 
 ### Normal ILL parsing and selection
 
