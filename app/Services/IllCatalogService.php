@@ -37,11 +37,34 @@ class IllCatalogService
             $addons[$offering['service_type']][] = $offering;
         }
 
+        $currentPlan = $this->subscriberService->getNormalIllCurrentPlan($serviceId);
+        $changes = ['upgrade' => ['Standard' => [], 'Premium' => [], 'GIN' => []], 'downgrade' => ['Standard' => [], 'Premium' => [], 'GIN' => []]];
+        if ($currentPlan['state'] === 'resolved') {
+            $bandwidth = $currentPlan['currentBandwidthPlan']['bandwidthMbps'];
+            $serviceType = $currentPlan['currentBandwidthPlan']['serviceType'];
+            foreach ($addons as $type => $offerings) {
+                if ($type !== $serviceType) {
+                    $addons[$type] = [];
+
+                    continue;
+                }
+                foreach ($offerings as $offering) {
+                    if ($offering['bandwidth'] > $bandwidth) {
+                        $changes['upgrade'][$type][] = $offering;
+                    } elseif ($offering['bandwidth'] < $bandwidth) {
+                        $changes['downgrade'][$type][] = $offering;
+                    }
+                }
+            }
+        }
+
         return [
             'subscription' => $customer['subscription'] ?? null,
             'crm_base_plan' => $crmBasePlan,
             'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
             'addons' => $addons,
+            ...$currentPlan,
+            'bandwidthChangeOfferings' => $changes,
         ];
     }
 }

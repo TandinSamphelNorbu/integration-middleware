@@ -151,6 +151,33 @@ class SubscriberService
         ];
     }
 
+    /** @return array<string, mixed> */
+    public function getNormalIllCurrentPlan(string $serviceId): array
+    {
+        $selector = new IllCurrentPlanSelector;
+        try {
+            $response = $this->queryIllService($serviceId);
+            $data = $response->json();
+            if ($response->status() === 401 || (string) ($data['responseHeader']['responseStatus'] ?? '') === '401') {
+                $this->crmAuthService->forgetAccessToken();
+                $response = $this->queryIllService($serviceId);
+                $data = $response->json();
+            }
+            if ($response->status() === 401 || (string) ($data['responseHeader']['responseStatus'] ?? '') === '401') {
+                return $selector->unresolved('authentication_failed');
+            }
+            if (! $response->successful()) {
+                return $selector->unresolved('crm_lookup_failed');
+            }
+
+            return $selector->select($data);
+        } catch (ConnectionException) {
+            return $selector->unresolved('crm_connection_failed');
+        } catch (IntegrationException) {
+            return $selector->unresolved('authentication_failed');
+        }
+    }
+
     public function getIllService(string $serviceId): array
     {
         $response = $this->queryIllService($serviceId);

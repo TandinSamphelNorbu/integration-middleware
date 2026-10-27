@@ -17,7 +17,7 @@ class CatalogEligibilityService
     public function getEligibility(
         string $serviceId
     ): array {
-        $customer = $this->lookup($serviceId, 'queryservice', 'Unable to retrieve catalog customer details.', function () use ($serviceId): array {
+        $customer = $this->lookup($serviceId, 'queryservice', 'what', function () use ($serviceId): array {
             $customer = $this->subscriberService->getIllCustomerData($serviceId);
 
             if ($customer['success'] !== true) {

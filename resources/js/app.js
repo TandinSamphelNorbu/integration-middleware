@@ -163,12 +163,21 @@ function renderPostpaidPlans(data, target) {
 }
 
 function renderIllPlans(data, target) {
-    const groups = ['Standard', 'Premium', 'GIN'].map(type => [type, data.addons?.[type]]);
+    if (!data.base_plan) throw new Error('Unexpected ILL response.');
+    appendDetails(target, [['Subscriber type', data.subscription], ['Base plan', data.base_plan.name], ['Base plan ID', data.base_plan.id]]);
+    const current = data.currentBandwidthPlan;
+    appendDetails(target, [['Current-plan state', data.state], ['Current bandwidth plan', current?.planName], ['Current plan ID', current?.planId], ['Current subscription ID', current?.subscriptionId], ['Current bandwidth (Mbps)', current?.bandwidthMbps], ['Selection policy', data.selectionPolicy]]);
+    if (data.diagnostics?.includes('multiple_matching_subscriptions')) target.append(element('p', '', 'Multiple matching subscriptions found. The first legacy match is selected; investigate with CRM.'));
+    if (data.state !== 'resolved') {
+        target.append(element('p', '', `Current bandwidth is unresolved (${data.reason || 'lookup failed'}). Upgrade/downgrade eligibility is unavailable.`));
+        return 0;
+    }
+    const groups = ['upgrade', 'downgrade'].flatMap(operation => ['Standard', 'Premium', 'GIN'].map(type => [`${operation} · ${type}`, data.bandwidthChangeOfferings?.[operation]?.[type]]));
     if (!data.base_plan || groups.some(([, plans]) => !Array.isArray(plans))) throw new Error('Unexpected ILL response.');
     const count = groups.reduce((total, [, plans]) => total + plans.length, 0);
-    appendDetails(target, [['Subscriber type', data.subscription], ['Base plan', data.base_plan.name], ['Base plan ID', data.base_plan.id]]);
     target.append(element('h3', 'mb-4 mt-6 font-semibold', `Available ILL Plans (${count})`));
     const selectPlan = planSelection(target);
+    target.append(element('p', '', 'Submission rechecks the current subscription and target offering.'));
     for (const [type, plans] of groups) {
         if (!plans.length) continue;
         target.append(element('h4', 'mb-4 mt-6 font-semibold', `${type} (${plans.length})`));

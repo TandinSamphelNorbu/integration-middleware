@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Repositories\IllOfferingRepository;
 use App\Repositories\LeasedlineCatalogRepository;
 use App\Services\CbsFwaUsageService;
+use App\Services\IllCurrentPlanSelector;
 use App\Services\PostpaidFwaPlanService;
 use App\Services\SubscriberService;
 use Illuminate\Database\QueryException;
@@ -84,10 +85,16 @@ class LeasedlineCatalogTest extends TestCase
         Http::preventStrayRequests();
         $this->mock(SubscriberService::class)->shouldReceive('getIllCustomerData')->once()->with('12345678')
             ->andReturn(['success' => true, 'subscription' => 'Postpaid', 'BasePlan' => $basePlan]);
+        $this->app->make(SubscriberService::class)->shouldReceive('getNormalIllCurrentPlan')->once()->andReturn((new IllCurrentPlanSelector)->unresolved('missing_subscriptions'));
         DB::connection('leasedline')->enableQueryLog();
 
         $this->actingAs(User::factory()->make(), $guard)->getJson($endpoint.'?service_id=12345678')
             ->assertOk()->assertExactJson([
+                ...(new IllCurrentPlanSelector)->unresolved('missing_subscriptions'),
+                'bandwidthChangeOfferings' => [
+                    'upgrade' => ['Standard' => [], 'Premium' => [], 'GIN' => []],
+                    'downgrade' => ['Standard' => [], 'Premium' => [], 'GIN' => []],
+                ],
                 'success' => true, 'service_id' => '12345678', 'subscription' => 'Postpaid',
                 'crm_base_plan' => $basePlan, 'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
                 'addons' => [
@@ -128,9 +135,15 @@ class LeasedlineCatalogTest extends TestCase
         $this->createSourceTables();
         $this->mock(SubscriberService::class)->shouldReceive('getIllCustomerData')->once()->with('12345678')
             ->andReturn(['success' => true, 'subscription' => 'Postpaid', 'BasePlan' => 'ILL Main Offering']);
+        $this->app->make(SubscriberService::class)->shouldReceive('getNormalIllCurrentPlan')->once()->andReturn((new IllCurrentPlanSelector)->unresolved('missing_subscriptions'));
 
         $this->actingAs(User::factory()->make(), 'sanctum')->getJson('/api/v1/ill/catalog?service_id=12345678')
             ->assertOk()->assertExactJson([
+                ...(new IllCurrentPlanSelector)->unresolved('missing_subscriptions'),
+                'bandwidthChangeOfferings' => [
+                    'upgrade' => ['Standard' => [], 'Premium' => [], 'GIN' => []],
+                    'downgrade' => ['Standard' => [], 'Premium' => [], 'GIN' => []],
+                ],
                 'success' => true, 'service_id' => '12345678', 'subscription' => 'Postpaid',
                 'crm_base_plan' => 'ILL Main Offering', 'base_plan' => ['id' => '109', 'name' => 'ILL Main Offering'],
                 'addons' => ['Standard' => [], 'Premium' => [], 'GIN' => []],

@@ -48,3 +48,4 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/ill/catalog', [IllCatalogController::class, 'index']);
 
 });
+
